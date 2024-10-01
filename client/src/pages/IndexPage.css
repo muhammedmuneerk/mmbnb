@@ -1,0 +1,9 @@
+/* Large screens (≥ 1024px) */
+@media (min-width: 1024px) {
+    .big-screen {
+        /* Add your styles here */
+        /* padding-left: 20rem;  Example padding */
+        font-size: 1.5rem;  /* Example font size */
+        margin-left: 4.1rem;
+    }
+}

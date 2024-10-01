@@ -1,0 +1,10 @@
+/* Large screens (≥ 1024px) */
+@media (min-width: 1024px) {
+    .placescreen {
+        /* Add your styles here */
+        padding-left: 20px;  
+        
+        margin-left: 4.1rem;
+        display: 100%;
+    }
+}
