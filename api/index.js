@@ -9,7 +9,10 @@ const Booking = require('./models/Booking.js');
 const cookieParser = require('cookie-parser');
 const imageDownloader = require('image-downloader');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 const fs = require('fs'); //const { resolve } = require('path');
+const mime = require('mime-types');
+const os = require('os');
 
 require('dotenv').config();
 const app = express();
@@ -21,11 +24,41 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname+'/uploads'));
 app.use(cors({
+    origin: 'http://localhost:5173', // Allow your frontend origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
     credentials: true,
-    origin: 'http://localhost:5173',
-}));
+  }));
 
-mongoose.connect(process.env.MONGO_URL);
+// mongoose.connect(process.env.MONGO_URL); connecting to Atlas , not sure its necessery i need to connect in every endpoint, instead of when the server starts //
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+
+  const photosMiddleware = multer({ dest: os.tmpdir() });
+
+  async function uploadToCloudinary(path, originalFilename, mimetype) {
+    try {
+      // Upload the file to Cloudinary
+      const result = await cloudinary.uploader.upload(path, {
+        public_id: `${Date.now()}-${originalFilename}`, // Generate a unique filename
+        resource_type: "auto", // Automatically detect the resource type
+        folder: "booking-app", // Optional: specify a folder in your Cloudinary account
+      });
+  
+      // Delete the temporary file
+      fs.unlinkSync(path);
+  
+      // Return the Cloudinary URL
+      return result.secure_url;
+    } catch (error) {
+      console.error('Error uploading to Cloudinary:', error);
+      throw new Error('Failed to upload file to Cloudinary');
+    }
+  }
 
 function getUserDataFromReq(req) {
     return new Promise((resolve, reject) => {
@@ -37,10 +70,12 @@ function getUserDataFromReq(req) {
 }
 
 app.get('/test', (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     res.json('test ok');
 });
 
 app.post('/register', async (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {name,email,password} = req.body;
 
     try {
@@ -57,6 +92,7 @@ app.post('/register', async (req,res) => {
 });
 
 app.post('/login', async (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {email,password} = req.body;
     const userDoc = await User.findOne({email});
     if (userDoc) {
@@ -78,6 +114,7 @@ app.post('/login', async (req,res) => {
 });
 
 app.get('/profile', (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {token} = req.cookies;
     if (token) {
         jwt.verify(token, jwtSecret, {}, async(err, userData) => {
@@ -95,31 +132,48 @@ app.post('/logout', (req,res) => {
 })
 
 
-app.post('/uplode-by-link', async (req,res) => {
-    const {link} = req.body;
+app.post('/upload-by-link', async (req, res) => {
+    const { link } = req.body;
     const newName = 'photo' + Date.now() + '.jpg';
-    await imageDownloader.image({
-        url: link,
-        dest: __dirname+'/uploads/' +newName,
-    });
-    res.json(newName);
-})
+    const destPath = os.tmpdir() + '/' + newName; // Use os.tmpdir() for temporary file storage
 
-const photosMiddleware =multer({dest:'uploads/'});
-app.post('/upload', photosMiddleware.array('photos', 100), (req,res) => {
-    const uploadedFiles = [];
-    for (let i = 0; i < req.files.length; i++) {
-        const {path,originalname} = req.files[i];
-        const parts = originalname.split('.');
-        const ext = parts[parts.length - 1];
-        const newPath = path + '.' + ext;
-        fs.renameSync(path, newPath);
-        uploadedFiles.push(newPath.replace('uploads/',''));
+    try {
+        // Download the image
+        await imageDownloader.image({
+            url: link,
+            dest: destPath,
+        });
+
+        // Upload the image to Cloudinary
+        const cloudinaryUrl = await uploadToCloudinary(destPath, newName, mime.lookup(destPath));
+        
+        res.json(cloudinaryUrl); // Return the Cloudinary URL
+    } catch (error) {
+        console.error('Error during upload by link process:', error);
+        res.status(500).json({ message: 'Failed to upload file by link' });
     }
-    res.json(uploadedFiles);
-})
+});
+
+// Route for handling file uploads
+app.post('/upload', photosMiddleware.array('photos', 100), async (req, res) => {
+    try {
+      const uploadedFiles = [];
+  
+      for (let i = 0; i < req.files.length; i++) {
+        const { path, originalname } = req.files[i];
+        const cloudinaryUrl = await uploadToCloudinary(path, originalname);
+        uploadedFiles.push(cloudinaryUrl);
+      }
+  
+      res.json(uploadedFiles);
+    } catch (error) {
+      console.error('Error during upload process:', error);
+      res.status(500).json({ message: 'Failed to upload files' });
+    }
+  });
 
 app.post('/places', (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {token} = req.cookies;
     const {
         title,address,addedPhotos,description,price,
@@ -137,6 +191,7 @@ app.post('/places', (req,res) => {
 })
 
 app.get('/user-places', (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {token} = req.cookies;
     jwt.verify(token, jwtSecret, {}, async(err, userData) => {
         const {id} = userData;
@@ -145,11 +200,13 @@ app.get('/user-places', (req,res) => {
 });
 
 app.get('/places/:id', async (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {id} = req.params;
     res.json(await Place.findById(id));
 });
 
 app.put('/places', async (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const {token} = req.cookies;
     const {
         id, title,address,addedPhotos,description,
@@ -170,10 +227,12 @@ app.put('/places', async (req,res) => {
 });
 
 app.get('/places', async (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     res.json( await Place.find() );
 })
 
 app.post('/bookings', async (req, res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const userData = await getUserDataFromReq(req);
     const {
         place,checkIn,checkOut,numberOfGuests,name,phone,price,
@@ -191,6 +250,7 @@ app.post('/bookings', async (req, res) => {
 
 
 app.get('/bookings', async (req,res) => {
+    mongoose.connect(process.env.MONGO_URL);
     const userData = await getUserDataFromReq(req);
     res.json( await Booking.find({user:userData.id}).populate('place') );
 });

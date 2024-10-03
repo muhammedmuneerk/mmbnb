@@ -1,5 +1,6 @@
 import  { useState, useCallback } from "react";
 import PropTypes from 'prop-types';
+import Image from "./Image";
 
 export default function PlaceGallery({ place }) {
     const [showAllPhotos, setShowAllPhotos] = useState(false);
@@ -38,8 +39,8 @@ export default function PlaceGallery({ place }) {
                     <div className="grid gap-4 mt-8">
                         {place.photos.map((photo, index) => (
                             <div key={index} className="flex justify-center">
-                                <img 
-                                    src={`http://localhost:4000/uploads/${photo}`} 
+                                <Image 
+                                    src={`${photo}`} 
                                     alt={`${place.title} - Photo ${index + 1}`}
                                     className="max-w-full max-h-[80vh] object-contain"
                                 />
@@ -56,29 +57,29 @@ export default function PlaceGallery({ place }) {
             <div className="grid gap-2 grid-cols-[2fr_1fr] rounded-3xl overflow-hidden">
                 <div>
                     {place.photos[0] && (
-                        <img 
+                        <Image 
                             onClick={openGallery} 
                             className="aspect-square cursor-pointer object-cover w-full h-full" 
-                            src={`http://localhost:4000/uploads/${place.photos[0]}`} 
+                            src={`${place.photos[0]}`} 
                             alt={`${place.title} - Main Photo`}
                         />
                     )}
                 </div>
                 <div className="grid">
                     {place.photos[1] && (
-                        <img 
+                        <Image 
                             onClick={openGallery} 
                             className="aspect-square cursor-pointer object-cover" 
-                            src={`http://localhost:4000/uploads/${place.photos[1]}`} 
+                            src={`${place.photos[1]}`} 
                             alt={`${place.title} - Photo 2`}
                         />
                     )}
                     <div className="overflow-hidden">
                         {place.photos[2] && (
-                            <img 
+                            <Image
                                 onClick={openGallery} 
                                 className="aspect-square cursor-pointer object-cover relative top-2" 
-                                src={`http://localhost:4000/uploads/${place.photos[2]}`} 
+                                src={`${place.photos[2]}`} 
                                 alt={`${place.title} - Photo 3`}
                             />
                         )}
